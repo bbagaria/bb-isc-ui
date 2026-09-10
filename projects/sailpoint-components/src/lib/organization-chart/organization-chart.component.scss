@@ -260,6 +260,19 @@ mat-option small {
   }
 }
 
+.node-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.relationship-issue {
+  color: var(--mat-sys-error);
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
 .state-container {
   position: absolute;
   inset: 0;

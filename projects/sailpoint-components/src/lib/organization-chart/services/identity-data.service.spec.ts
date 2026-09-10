@@ -50,6 +50,27 @@ describe('IdentityDataService', () => {
     expect(normalized?.location).toBe('Chicago');
   });
 
+  it('does not expose a field explicitly hidden by tenant configuration', () => {
+    const service = new IdentityDataService({} as SailPointSDKService);
+    const normalized = service.normalizeIdentity(
+      {
+        id: 'person',
+        name: 'Priya Sharma',
+        emailAddress: 'priya@example.com',
+        attributes: { email: 'fallback@example.com' },
+      },
+      [{
+        key: 'email',
+        label: 'Email',
+        source: 'attribute',
+        target: 'email',
+        visible: false,
+      }]
+    );
+
+    expect(normalized?.email).toBeUndefined();
+  });
+
   it('paginates identities in bulk and de-duplicates ids', async () => {
     let calls = 0;
     const sdk = {
@@ -73,5 +94,27 @@ describe('IdentityDataService', () => {
       'two',
     ]);
     expect(calls).toBe(2);
+  });
+
+  it('rejects structured non-success responses from the generated SDK bridge', async () => {
+    const sdk = {
+      listIdentitiesV1: () =>
+        Promise.resolve({
+          data: [],
+          status: 500,
+          statusText: 'ISC unavailable',
+          headers: {},
+        }),
+    } as unknown as SailPointSDKService;
+    const service = new IdentityDataService(sdk);
+    let message = '';
+
+    try {
+      await service.loadIdentities();
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+
+    expect(message).toBe('ISC unavailable');
   });
 });

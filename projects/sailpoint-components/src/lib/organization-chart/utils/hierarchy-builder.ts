@@ -20,6 +20,19 @@ export function buildOrganizationHierarchy(
   }
 
   const invalidIds = findInvalidRelationshipIds(nodes);
+  const directReportCounts = new Map<string, number>();
+  for (const node of nodes.values()) {
+    if (
+      node.managerId &&
+      node.managerId !== node.id &&
+      nodes.has(node.managerId)
+    ) {
+      directReportCounts.set(
+        node.managerId,
+        (directReportCounts.get(node.managerId) ?? 0) + 1
+      );
+    }
+  }
   const roots: OrgChartNode[] = [];
   const orphaned: OrgChartNode[] = [];
   const invalid: OrgChartNode[] = [];
@@ -53,7 +66,7 @@ export function buildOrganizationHierarchy(
     a.name.localeCompare(b.name);
   for (const node of nodes.values()) {
     node.children.sort(byName);
-    node.reportCount = node.children.length;
+    node.reportCount = directReportCounts.get(node.id) ?? 0;
   }
 
   roots.sort(byName);

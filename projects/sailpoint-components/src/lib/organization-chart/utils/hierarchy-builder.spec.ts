@@ -53,6 +53,7 @@ describe('buildOrganizationHierarchy', () => {
     const result = buildOrganizationHierarchy([identity('person', 'person')]);
 
     expect(result.invalid.map((node) => node.id)).toEqual(['person']);
+    expect(result.invalid[0].reportCount).toBe(0);
   });
 
   it('detects every member of a circular manager relationship', () => {
@@ -63,6 +64,7 @@ describe('buildOrganizationHierarchy', () => {
     ]);
 
     expect(result.invalid.map((node) => node.id)).toEqual(['a', 'b', 'c']);
+    expect(result.invalid.every((node) => node.reportCount === 1)).toBe(true);
     expect(result.roots).toEqual([]);
   });
 

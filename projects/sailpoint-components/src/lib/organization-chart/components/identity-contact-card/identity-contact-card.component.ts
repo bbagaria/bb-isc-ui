@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   EventEmitter,
+  HostListener,
   Input,
   OnChanges,
   Output,
@@ -32,6 +33,7 @@ import { TeamsLinkService } from '../../services/teams-link.service';
 export class IdentityContactCardComponent implements OnChanges {
   @Input({ required: true }) identity!: OrgChartNode;
   @Input() manager?: OrgChartNode;
+  @Input() managerUnavailable = false;
   @Output() readonly closed = new EventEmitter<void>();
   @Output() readonly managerSelected = new EventEmitter<OrgChartNode>();
 
@@ -55,14 +57,23 @@ export class IdentityContactCardComponent implements OnChanges {
   }
 
   get phoneUrl(): string | undefined {
-    return this.identity.phone
-      ? `tel:${this.identity.phone.replace(/[^\d+*#,;]/g, '')}`
-      : undefined;
+    const phone = this.identity.phone?.replace(/[^\d+*#,;]/g, '');
+    return phone && /\d/.test(phone) ? `tel:${phone}` : undefined;
   }
 
   get emailUrl(): string | undefined {
-    return this.identity.email
-      ? `mailto:${encodeURIComponent(this.identity.email)}`
+    const email = this.identity.email?.trim();
+    return email && !/[\r\n]/.test(email) && email.includes('@')
+      ? `mailto:${encodeURI(email)}`
       : undefined;
+  }
+
+  get hasContactActions(): boolean {
+    return Boolean(this.phoneUrl || this.emailUrl || this.teamsUrl);
+  }
+
+  @HostListener('keydown.escape')
+  closeOnEscape(): void {
+    this.closed.emit();
   }
 }

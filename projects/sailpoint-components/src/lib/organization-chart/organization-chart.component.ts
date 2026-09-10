@@ -1,9 +1,11 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, DOCUMENT } from '@angular/common';
+import { A11yModule } from '@angular/cdk/a11y';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   ElementRef,
+  Inject,
   Input,
   OnDestroy,
   OnInit,
@@ -49,25 +51,44 @@ export function searchOrganizationIdentities(
     return [];
   }
 
-  return identities
-    .filter((identity) => {
-      const haystack = [
-        identity.firstName,
-        identity.lastName,
-        identity.name,
-        identity.title,
-        identity.department,
-        identity.location,
-        identity.email,
-        identity.status,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLocaleLowerCase();
-      return terms.every((term) => haystack.includes(term));
-    })
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .slice(0, limit);
+  const results: OrgChartNode[] = [];
+  for (const identity of identities) {
+    const haystack = [
+      identity.firstName,
+      identity.lastName,
+      identity.name,
+      identity.title,
+      identity.department,
+      identity.location,
+      identity.email,
+      identity.status,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLocaleLowerCase();
+    if (!terms.every((term) => haystack.includes(term))) {
+      continue;
+    }
+
+    let low = 0;
+    let high = results.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      const comparison =
+        results[middle].name.localeCompare(identity.name) ||
+        results[middle].id.localeCompare(identity.id);
+      if (comparison <= 0) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    results.splice(low, 0, identity);
+    if (results.length > limit) {
+      results.pop();
+    }
+  }
+  return results;
 }
 
 @Component({
@@ -75,6 +96,7 @@ export function searchOrganizationIdentities(
   standalone: true,
   imports: [
     CommonModule,
+    A11yModule,
     ReactiveFormsModule,
     MatAutocompleteModule,
     MatButtonModule,
@@ -117,8 +139,11 @@ export class OrganizationChartComponent implements OnInit, OnDestroy {
 
   private readonly nodesById = new Map<string, OrgChartNode>();
   private readonly expandedIds = new Set<string>();
+  private readonly orphanedIds = new Set<string>();
+  private readonly invalidIds = new Set<string>();
   private readonly failedPhotos = new Set<string>();
   private readonly destroy$ = new Subject<void>();
+  private returnFocus?: HTMLElement;
   isPanning = false;
   private pointerStartX = 0;
   private pointerStartY = 0;
@@ -128,7 +153,8 @@ export class OrganizationChartComponent implements OnInit, OnDestroy {
   constructor(
     private readonly identityData: IdentityDataService,
     private readonly photos: ProfilePhotoService,
-    private readonly cdr: ChangeDetectorRef
+    private readonly cdr: ChangeDetectorRef,
+    @Inject(DOCUMENT) private readonly document: Document
   ) {}
 
   ngOnInit(): void {
@@ -167,6 +193,10 @@ export class OrganizationChartComponent implements OnInit, OnDestroy {
       this.identities = await this.identityData.loadIdentities(this.fieldConfig);
       this.hierarchy = buildOrganizationHierarchy(this.identities);
       this.nodesById.clear();
+      this.orphanedIds.clear();
+      this.invalidIds.clear();
+      this.hierarchy.orphaned.forEach((node) => this.orphanedIds.add(node.id));
+      this.hierarchy.invalid.forEach((node) => this.invalidIds.add(node.id));
       this.identities = [
         ...this.hierarchy.roots,
         ...this.hierarchy.orphaned,
@@ -223,6 +253,7 @@ export class OrganizationChartComponent implements OnInit, OnDestroy {
   }
 
   selectIdentity(identity: OrgChartNode): void {
+    this.rememberFocus();
     this.selected = identity;
     this.highlightedId = identity.id;
   }
@@ -243,13 +274,19 @@ export class OrganizationChartComponent implements OnInit, OnDestroy {
     this.rebuildLayout();
     this.highlightedId = identity.id;
     if (openDetails) {
+      this.rememberFocus();
       this.selected = identity;
     }
     queueMicrotask(() => this.centerNode(identity.id));
   }
 
   closeDetails(): void {
+    const focusTarget = this.returnFocus;
     this.selected = undefined;
+    this.returnFocus = undefined;
+    if (focusTarget?.isConnected) {
+      queueMicrotask(() => focusTarget.focus());
+    }
   }
 
   toggleExpanded(identity: OrgChartNode, event: Event): void {
@@ -349,64 +386,113 @@ export class OrganizationChartComponent implements OnInit, OnDestroy {
     return this.photos.getInitials(identity);
   }
 
+  relationshipIssue(identity: OrgChartNode): string | undefined {
+    if (this.invalidIds.has(identity.id)) {
+      return 'Circular manager relationship';
+    }
+    if (this.orphanedIds.has(identity.id)) {
+      return 'Manager unavailable';
+    }
+    return undefined;
+  }
+
   trackNode(_index: number, item: OrgChartLayoutNode): string {
     return item.node.id;
   }
 
   private rebuildLayout(): void {
-    const layout: OrgChartLayoutNode[] = [];
-    const connections: Array<{ parent: OrgChartNode; child: OrgChartNode }> = [];
+    const positions = new Map<string, OrgChartLayoutNode>();
     let nextLeaf = 0;
-
-    const visit = (node: OrgChartNode, depth: number): number => {
-      const visibleChildren = this.expandedIds.has(node.id) ? node.children : [];
-      let center: number;
-
-      if (visibleChildren.length === 0) {
-        center = nextLeaf * (NODE_WIDTH + HORIZONTAL_GAP);
-        nextLeaf += 1;
-      } else {
-        const childCenters = visibleChildren.map((child) => {
-          connections.push({ parent: node, child });
-          return visit(child, depth + 1);
-        });
-        center =
-          (childCenters[0] + childCenters[childCenters.length - 1]) / 2;
-      }
-
-      layout.push({
-        node,
-        x: center + CANVAS_PADDING,
-        y: depth * (NODE_HEIGHT + VERTICAL_GAP) + CANVAS_PADDING,
-      });
-      return center;
-    };
 
     this.displayRoots.forEach((root, index) => {
       if (index > 0) {
         nextLeaf += 0.35;
       }
-      visit(root, 0);
+      const stack: Array<{
+        node: OrgChartNode;
+        depth: number;
+        processed: boolean;
+      }> = [{ node: root, depth: 0, processed: false }];
+
+      while (stack.length > 0) {
+        const entry = stack.pop();
+        if (!entry) {
+          continue;
+        }
+        const children = this.expandedIds.has(entry.node.id)
+          ? entry.node.children
+          : [];
+
+        if (!entry.processed) {
+          stack.push({ ...entry, processed: true });
+          for (let childIndex = children.length - 1; childIndex >= 0; childIndex--) {
+            stack.push({
+              node: children[childIndex],
+              depth: entry.depth + 1,
+              processed: false,
+            });
+          }
+          continue;
+        }
+
+        let x: number;
+        if (children.length === 0) {
+          x = nextLeaf * (NODE_WIDTH + HORIZONTAL_GAP) + CANVAS_PADDING;
+          nextLeaf += 1;
+        } else {
+          const first = positions.get(children[0].id);
+          const last = positions.get(children[children.length - 1].id);
+          x = first && last
+            ? (first.x + last.x) / 2
+            : nextLeaf * (NODE_WIDTH + HORIZONTAL_GAP) + CANVAS_PADDING;
+        }
+        positions.set(entry.node.id, {
+          node: entry.node,
+          x,
+          y:
+            entry.depth * (NODE_HEIGHT + VERTICAL_GAP) +
+            CANVAS_PADDING,
+        });
+      }
     });
 
-    const layoutById = new Map(layout.map((item) => [item.node.id, item]));
-    this.connectors = connections.flatMap(({ parent, child }) => {
-      const from = layoutById.get(parent.id);
-      const to = layoutById.get(child.id);
-      return from && to
-        ? [{
-            fromX: from.x + NODE_WIDTH / 2,
-            fromY: from.y + NODE_HEIGHT,
-            toX: to.x + NODE_WIDTH / 2,
-            toY: to.y,
-          }]
-        : [];
-    });
+    const layout: OrgChartLayoutNode[] = [];
+    const connectors: OrgChartConnector[] = [];
+    const preorder = [...this.displayRoots].reverse();
+    while (preorder.length > 0) {
+      const node = preorder.pop();
+      const item = node ? positions.get(node.id) : undefined;
+      if (!node || !item) {
+        continue;
+      }
+      layout.push(item);
+      const children = this.expandedIds.has(node.id) ? node.children : [];
+      for (let index = children.length - 1; index >= 0; index--) {
+        preorder.push(children[index]);
+      }
+      children.forEach((child) => {
+        const childItem = positions.get(child.id);
+        if (childItem) {
+          connectors.push({
+            fromX: item.x + NODE_WIDTH / 2,
+            fromY: item.y + NODE_HEIGHT,
+            toX: childItem.x + NODE_WIDTH / 2,
+            toY: childItem.y,
+          });
+        }
+      });
+    }
+
     this.layoutNodes = layout;
-    this.canvasWidth =
-      Math.max(0, ...layout.map((item) => item.x + NODE_WIDTH)) + CANVAS_PADDING;
-    this.canvasHeight =
-      Math.max(0, ...layout.map((item) => item.y + NODE_HEIGHT)) + CANVAS_PADDING;
+    this.connectors = connectors;
+    let maxX = 0;
+    let maxY = 0;
+    layout.forEach((item) => {
+      maxX = Math.max(maxX, item.x + NODE_WIDTH);
+      maxY = Math.max(maxY, item.y + NODE_HEIGHT);
+    });
+    this.canvasWidth = maxX + CANVAS_PADDING;
+    this.canvasHeight = maxY + CANVAS_PADDING;
     this.cdr.markForCheck();
   }
 
@@ -450,5 +536,15 @@ export class OrganizationChartComponent implements OnInit, OnDestroy {
 
   private clampZoom(value: number): number {
     return Math.min(2, Math.max(0.3, value));
+  }
+
+  private rememberFocus(): void {
+    if (this.selected || this.returnFocus) {
+      return;
+    }
+    const active = this.document.activeElement;
+    if (active && typeof (active as HTMLElement).focus === 'function') {
+      this.returnFocus = active as HTMLElement;
+    }
   }
 }

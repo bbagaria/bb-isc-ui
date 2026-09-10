@@ -1,4 +1,4 @@
-<mat-card class="contact-card" role="dialog" aria-modal="true" [attr.aria-label]="'Contact details for ' + identity.name">
+<mat-card class="contact-card" role="dialog" aria-modal="true" aria-labelledby="contact-card-name">
   <mat-card-header>
     <span class="panel-title">Identity details</span>
     <button mat-icon-button type="button" aria-label="Close identity details" (click)="closed.emit()">
@@ -10,14 +10,14 @@
     <section class="identity-hero">
       <div class="avatar avatar-large" aria-hidden="true">
         @if (photoUrl && !imageFailed) {
-          <img [src]="photoUrl" [alt]="identity.name" (error)="imageFailed = true">
+          <img [src]="photoUrl" alt="" (error)="imageFailed = true">
         } @else if (initials) {
           <span>{{ initials }}</span>
         } @else {
           <mat-icon>person</mat-icon>
         }
       </div>
-      <h2>{{ identity.name }}</h2>
+      <h2 id="contact-card-name">{{ identity.name }}</h2>
       @if (identity.title) {
         <p class="title">{{ identity.title }}</p>
       }
@@ -33,7 +33,7 @@
       }
     </section>
 
-    @if (identity.phone || identity.email || teamsUrl) {
+    @if (hasContactActions) {
       <mat-divider></mat-divider>
       <section class="contact-actions" aria-label="Contact actions">
         @if (identity.phone && phoneUrl) {
@@ -68,6 +68,11 @@
             <span><strong>{{ manager.name }}</strong><small>{{ manager.title }}</small></span>
           </button>
         </div>
+      } @else if (managerUnavailable) {
+        <div>
+          <h3>Manager</h3>
+          <p class="unavailable-manager">Referenced manager is not available in the loaded identity data.</p>
+        </div>
       }
       <div class="report-count">
         <mat-icon>groups</mat-icon>
@@ -75,7 +80,7 @@
       </div>
     </section>
 
-    @if (!identity.phone && !identity.email && !teamsUrl) {
+    @if (!hasContactActions) {
       <p class="empty-contact">No contact actions are available for this identity.</p>
     }
   </mat-card-content>

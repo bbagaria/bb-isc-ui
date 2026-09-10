@@ -53,10 +53,13 @@
     <div class="relationship-notice" role="status">
       <mat-icon>info</mat-icon>
       <span>
-        {{ hierarchy.orphaned.length }} missing manager
-        {{ hierarchy.orphaned.length === 1 ? 'reference' : 'references' }}
+        @if (hierarchy.orphaned.length > 0) {
+          {{ hierarchy.orphaned.length }} missing manager
+          {{ hierarchy.orphaned.length === 1 ? 'reference' : 'references' }}
+        }
         @if (hierarchy.invalid.length > 0) {
-          · {{ hierarchy.invalid.length }} circular or self-managed
+          @if (hierarchy.orphaned.length > 0) { <span aria-hidden="true"> · </span> }
+          {{ hierarchy.invalid.length }} circular or self-managed
           {{ hierarchy.invalid.length === 1 ? 'identity' : 'identities' }}
         }
       </span>
@@ -145,14 +148,20 @@
                   {{ item.node.reportCount }}
                   direct {{ item.node.reportCount === 1 ? 'report' : 'reports' }}
                 </span>
-                @if (item.node.children.length > 0) {
-                  <button mat-icon-button type="button"
-                          [attr.aria-label]="(isExpanded(item.node) ? 'Collapse reports for ' : 'Expand reports for ') + item.node.name"
-                          [attr.aria-expanded]="isExpanded(item.node)"
-                          (click)="toggleExpanded(item.node, $event)">
-                    <mat-icon>{{ isExpanded(item.node) ? 'remove' : 'add' }}</mat-icon>
-                  </button>
-                }
+                <div class="node-footer-actions">
+                  @if (relationshipIssue(item.node); as issue) {
+                    <mat-icon class="relationship-issue" role="img"
+                              [attr.aria-label]="issue" [matTooltip]="issue">warning</mat-icon>
+                  }
+                  @if (item.node.children.length > 0) {
+                    <button mat-icon-button type="button"
+                            [attr.aria-label]="(isExpanded(item.node) ? 'Collapse reports for ' : 'Expand reports for ') + item.node.name"
+                            [attr.aria-expanded]="isExpanded(item.node)"
+                            (click)="toggleExpanded(item.node, $event)">
+                      <mat-icon>{{ isExpanded(item.node) ? 'remove' : 'add' }}</mat-icon>
+                    </button>
+                  }
+                </div>
               </div>
             </mat-card>
           }
@@ -162,10 +171,12 @@
 
     @if (selected) {
       <div class="details-backdrop" (click)="closeDetails()" aria-hidden="true"></div>
-      <aside class="details-panel" (click)="$event.stopPropagation()">
+      <aside class="details-panel" cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
+             (click)="$event.stopPropagation()">
         <app-identity-contact-card
           [identity]="selected"
           [manager]="manager"
+          [managerUnavailable]="!!selected.managerId && !manager"
           (closed)="closeDetails()"
           (managerSelected)="focusIdentity($event, true)">
         </app-identity-contact-card>

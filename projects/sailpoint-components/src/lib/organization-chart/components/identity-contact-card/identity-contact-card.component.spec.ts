@@ -61,6 +61,22 @@ describe('IdentityContactCardComponent', () => {
       .toBe('PS');
   });
 
+  it('does not render malformed phone or email actions', () => {
+    fixture.componentRef.setInput('identity', {
+      id: 'malformed-contact',
+      name: 'Malformed Contact',
+      phone: 'extension only',
+      email: 'not-an-email\r\nbcc:other@example.com',
+      reportCount: 0,
+      children: [],
+    });
+    fixture.detectChanges();
+
+    expect(component.hasContactActions).toBe(false);
+    expect(fixture.nativeElement.querySelectorAll('.contact-actions a').length)
+      .toBe(0);
+  });
+
   it('emits close and manager selection actions', () => {
     const manager: OrgChartNode = {
       id: 'manager',
@@ -84,5 +100,27 @@ describe('IdentityContactCardComponent', () => {
 
     expect(closed).toBe(true);
     expect(emittedManager).toBe(manager);
+  });
+
+  it('closes when Escape is pressed', () => {
+    let closed = false;
+    component.closed.subscribe(() => {
+      closed = true;
+    });
+
+    fixture.nativeElement
+      .querySelector('.contact-card')
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(closed).toBe(true);
+  });
+
+  it('explains when a referenced manager is unavailable', () => {
+    fixture.componentRef.setInput('managerUnavailable', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain(
+      'Referenced manager is not available'
+    );
   });
 });

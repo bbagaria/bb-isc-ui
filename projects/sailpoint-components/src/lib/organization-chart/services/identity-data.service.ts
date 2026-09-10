@@ -48,26 +48,21 @@ export class IdentityDataService {
         offset: 0,
         count: true,
       });
-      const all = [...(firstResponse.data ?? [])];
+      const all = [...this.readIdentityBatch(firstResponse)];
       this.loadedCountSubject.next(all.length);
 
       const totalCount = this.getTotalCount(firstResponse.headers);
       if (totalCount !== undefined) {
-        const requests: number[] = [];
-        for (
-          let offset = this.batchSize;
-          offset < totalCount;
-          offset += this.batchSize
-        ) {
-          requests.push(offset);
-        }
-
-        for (
-          let start = 0;
-          start < requests.length;
-          start += this.parallelRequests
-        ) {
-          const offsets = requests.slice(start, start + this.parallelRequests);
+        let nextOffset = this.batchSize;
+        while (nextOffset < totalCount) {
+          const offsets: number[] = [];
+          for (
+            let index = 0;
+            index < this.parallelRequests && nextOffset < totalCount;
+            index++, nextOffset += this.batchSize
+          ) {
+            offsets.push(nextOffset);
+          }
           const responses = await Promise.all(
             offsets.map((offset) =>
               this.sdk.listIdentitiesV1({
@@ -77,7 +72,9 @@ export class IdentityDataService {
               })
             )
           );
-          responses.forEach((response) => all.push(...(response.data ?? [])));
+          responses.forEach((response) =>
+            all.push(...this.readIdentityBatch(response))
+          );
           this.loadedCountSubject.next(all.length);
         }
       } else if (all.length === this.batchSize) {
@@ -111,21 +108,28 @@ export class IdentityDataService {
 
     const attributes = (identity.attributes ?? {}) as Record<string, unknown>;
     const configured = new Map<OrgChartFieldTarget, unknown>();
-    fields.filter((field) => field.visible).forEach((field) => {
+    const hidden = new Set<OrgChartFieldTarget>();
+    fields.forEach((field) => {
       const target = field.target ?? this.inferTarget(field);
-      if (target) {
+      if (!target) {
+        return;
+      }
+      if (field.visible) {
         configured.set(target, this.readField(identity, attributes, field));
+        hidden.delete(target);
+      } else if (!configured.has(target)) {
+        hidden.add(target);
       }
     });
 
-    const firstName = this.firstString(
+    const firstName = this.mappedString('firstName', configured, hidden,
       configured.get('firstName'),
       identity.firstName,
       attributes['firstname'],
       attributes['firstName'],
       attributes['givenName']
     );
-    const lastName = this.firstString(
+    const lastName = this.mappedString('lastName', configured, hidden,
       configured.get('lastName'),
       identity.lastName,
       attributes['lastname'],
@@ -141,30 +145,30 @@ export class IdentityDataService {
       name,
       firstName,
       lastName,
-      title: this.firstString(
+      title: this.mappedString('title', configured, hidden,
         configured.get('title'),
         identity.title,
         attributes['jobTitle'],
         attributes['title']
       ),
-      department: this.firstString(
+      department: this.mappedString('department', configured, hidden,
         configured.get('department'),
         identity.department,
         attributes['department']
       ),
-      location: this.firstString(
+      location: this.mappedString('location', configured, hidden,
         configured.get('location'),
         identity.location,
         attributes['location'],
         attributes['city']
       ),
-      email: this.firstString(
+      email: this.mappedString('email', configured, hidden,
         configured.get('email'),
         identity.emailAddress,
         attributes['email'],
         attributes['emailAddress']
       ),
-      phone: this.firstString(
+      phone: this.mappedString('phone', configured, hidden,
         configured.get('phone'),
         identity.phone,
         identity.phoneNumber,
@@ -178,12 +182,12 @@ export class IdentityDataService {
         identity.lifecycleState?.stateName,
         attributes['cloudLifecycleState']
       ),
-      photoUrl: this.firstString(
+      photoUrl: this.mappedString('photoUrl', configured, hidden,
         configured.get('photoUrl'),
         identity.photoUrl,
         attributes['photoUrl']
       ),
-      teamsUrl: this.firstString(
+      teamsUrl: this.mappedString('teamsUrl', configured, hidden,
         configured.get('teamsUrl'),
         identity.teamsUrl,
         attributes['teamsUrl']
@@ -197,7 +201,7 @@ export class IdentityDataService {
     let offset = this.batchSize;
     let hasMore = true;
 
-    while (hasMore && offset < this.batchSize * 1000) {
+    while (hasMore) {
       const offsets = Array.from(
         { length: this.parallelRequests },
         (_, index) => offset + index * this.batchSize
@@ -211,7 +215,9 @@ export class IdentityDataService {
           })
         )
       );
-      const batches = responses.map((response) => response.data ?? []);
+      const batches = responses.map((response) =>
+        this.readIdentityBatch(response)
+      );
       batches.forEach((batch) => all.push(...batch));
       this.loadedCountSubject.next(all.length);
       hasMore = batches.every((batch) => batch.length === this.batchSize);
@@ -252,6 +258,37 @@ export class IdentityDataService {
       }
     }
     return undefined;
+  }
+
+  private mappedString(
+    target: OrgChartFieldTarget,
+    configured: ReadonlyMap<OrgChartFieldTarget, unknown>,
+    hidden: ReadonlySet<OrgChartFieldTarget>,
+    ...fallbacks: unknown[]
+  ): string | undefined {
+    if (hidden.has(target) && !configured.has(target)) {
+      return undefined;
+    }
+    return this.firstString(...fallbacks);
+  }
+
+  private readIdentityBatch(response: {
+    data?: unknown;
+    status?: number;
+    statusText?: string;
+  }): Identity[] {
+    if (
+      typeof response.status === 'number' &&
+      (response.status < 200 || response.status >= 300)
+    ) {
+      throw new Error(
+        response.statusText || `Identity request failed (${response.status})`
+      );
+    }
+    if (!Array.isArray(response.data)) {
+      throw new Error('Identity request returned an invalid response');
+    }
+    return response.data as Identity[];
   }
 
   private getTotalCount(headers: unknown): number | undefined {
