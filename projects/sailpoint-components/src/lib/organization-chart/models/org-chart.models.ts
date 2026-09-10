@@ -1,10 +1,21 @@
 export type OrgChartFieldSource = 'topLevel' | 'attribute';
+export type OrgChartFieldTarget =
+  | 'firstName'
+  | 'lastName'
+  | 'title'
+  | 'department'
+  | 'location'
+  | 'email'
+  | 'phone'
+  | 'photoUrl'
+  | 'teamsUrl';
 
 export interface OrgChartFieldConfig {
   key: string;
   label: string;
   source: OrgChartFieldSource;
   visible: boolean;
+  target?: OrgChartFieldTarget;
 }
 
 export interface OrgChartNode {
@@ -45,13 +56,13 @@ export interface OrgChartConnector {
 }
 
 export const DEFAULT_ORG_CHART_FIELDS: ReadonlyArray<OrgChartFieldConfig> = [
-  { key: 'firstname', label: 'First name', source: 'attribute', visible: true },
-  { key: 'lastname', label: 'Last name', source: 'attribute', visible: true },
-  { key: 'jobTitle', label: 'Job title', source: 'attribute', visible: true },
-  { key: 'department', label: 'Department', source: 'attribute', visible: true },
-  { key: 'location', label: 'Location', source: 'attribute', visible: true },
-  { key: 'email', label: 'Email', source: 'attribute', visible: true },
-  { key: 'phone', label: 'Phone', source: 'attribute', visible: true },
-  { key: 'photoUrl', label: 'Photo', source: 'attribute', visible: true },
-  { key: 'teamsUrl', label: 'Microsoft Teams', source: 'attribute', visible: true },
+  { key: 'firstname', label: 'First name', source: 'attribute', visible: true, target: 'firstName' },
+  { key: 'lastname', label: 'Last name', source: 'attribute', visible: true, target: 'lastName' },
+  { key: 'jobTitle', label: 'Job title', source: 'attribute', visible: true, target: 'title' },
+  { key: 'department', label: 'Department', source: 'attribute', visible: true, target: 'department' },
+  { key: 'location', label: 'Location', source: 'attribute', visible: true, target: 'location' },
+  { key: 'email', label: 'Email', source: 'attribute', visible: true, target: 'email' },
+  { key: 'phone', label: 'Phone', source: 'attribute', visible: true, target: 'phone' },
+  { key: 'photoUrl', label: 'Photo', source: 'attribute', visible: true, target: 'photoUrl' },
+  { key: 'teamsUrl', label: 'Microsoft Teams', source: 'attribute', visible: true, target: 'teamsUrl' },
 ];

@@ -37,6 +37,7 @@ const NODE_HEIGHT = 142;
 const HORIZONTAL_GAP = 32;
 const VERTICAL_GAP = 82;
 const CANVAS_PADDING = 48;
+const MAX_DEFAULT_VISIBLE_REPORTS = 50;
 
 export function searchOrganizationIdentities(
   identities: ReadonlyArray<OrgChartNode>,
@@ -175,7 +176,10 @@ export class OrganizationChartComponent implements OnInit, OnDestroy {
 
       this.expandedIds.clear();
       this.displayRoots.forEach((root) => {
-        if (root.children.length > 0) {
+        if (
+          root.children.length > 0 &&
+          root.children.length <= MAX_DEFAULT_VISIBLE_REPORTS
+        ) {
           this.expandedIds.add(root.id);
         }
       });

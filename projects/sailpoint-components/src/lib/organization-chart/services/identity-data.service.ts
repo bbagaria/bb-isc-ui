@@ -5,6 +5,7 @@ import { SailPointSDKService } from '../../sailpoint-sdk.service';
 import {
   DEFAULT_ORG_CHART_FIELDS,
   OrgChartFieldConfig,
+  OrgChartFieldTarget,
   OrgChartNode,
 } from '../models/org-chart.models';
 
@@ -109,21 +110,23 @@ export class IdentityDataService {
     }
 
     const attributes = (identity.attributes ?? {}) as Record<string, unknown>;
-    const configured = new Map(
-      fields
-        .filter((field) => field.visible)
-        .map((field) => [field.label.toLowerCase(), this.readField(identity, attributes, field)])
-    );
+    const configured = new Map<OrgChartFieldTarget, unknown>();
+    fields.filter((field) => field.visible).forEach((field) => {
+      const target = field.target ?? this.inferTarget(field);
+      if (target) {
+        configured.set(target, this.readField(identity, attributes, field));
+      }
+    });
 
     const firstName = this.firstString(
-      configured.get('first name'),
+      configured.get('firstName'),
       identity.firstName,
       attributes['firstname'],
       attributes['firstName'],
       attributes['givenName']
     );
     const lastName = this.firstString(
-      configured.get('last name'),
+      configured.get('lastName'),
       identity.lastName,
       attributes['lastname'],
       attributes['lastName'],
@@ -139,7 +142,7 @@ export class IdentityDataService {
       firstName,
       lastName,
       title: this.firstString(
-        configured.get('job title'),
+        configured.get('title'),
         identity.title,
         attributes['jobTitle'],
         attributes['title']
@@ -176,12 +179,12 @@ export class IdentityDataService {
         attributes['cloudLifecycleState']
       ),
       photoUrl: this.firstString(
-        configured.get('photo'),
+        configured.get('photoUrl'),
         identity.photoUrl,
         attributes['photoUrl']
       ),
       teamsUrl: this.firstString(
-        configured.get('microsoft teams'),
+        configured.get('teamsUrl'),
         identity.teamsUrl,
         attributes['teamsUrl']
       ),
@@ -224,6 +227,22 @@ export class IdentityDataService {
     return field.source === 'topLevel'
       ? (identity as unknown as Record<string, unknown>)[field.key]
       : attributes[field.key];
+  }
+
+  private inferTarget(field: OrgChartFieldConfig): OrgChartFieldTarget | undefined {
+    const value = `${field.key} ${field.label}`.toLowerCase().replace(/[^a-z]/g, '');
+    const aliases: Array<[OrgChartFieldTarget, string[]]> = [
+      ['firstName', ['firstname', 'givenname']],
+      ['lastName', ['lastname', 'surname']],
+      ['title', ['title', 'jobtitle', 'position']],
+      ['department', ['department', 'businessunit']],
+      ['location', ['location', 'city', 'office']],
+      ['email', ['email', 'emailaddress']],
+      ['phone', ['phone', 'phonenumber', 'telephone', 'mobile']],
+      ['photoUrl', ['photo', 'photourl', 'avatar']],
+      ['teamsUrl', ['teams', 'teamsurl', 'microsoftteams']],
+    ];
+    return aliases.find(([, names]) => names.some((name) => value.includes(name)))?.[0];
   }
 
   private firstString(...values: unknown[]): string | undefined {
