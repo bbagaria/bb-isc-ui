@@ -18,17 +18,13 @@ describe('IdentityDataService', () => {
       },
     });
 
-    expect(normalized).toEqual(
-      jasmine.objectContaining({
-        id: 'person',
-        firstName: 'Priya',
-        lastName: 'Sharma',
-        title: 'VP Engineering',
-        department: 'Technology',
-        email: 'priya@example.com',
-        managerId: 'manager',
-      })
-    );
+    expect(normalized?.id).toBe('person');
+    expect(normalized?.firstName).toBe('Priya');
+    expect(normalized?.lastName).toBe('Sharma');
+    expect(normalized?.title).toBe('VP Engineering');
+    expect(normalized?.department).toBe('Technology');
+    expect(normalized?.email).toBe('priya@example.com');
+    expect(normalized?.managerId).toBe('manager');
   });
 
   it('supports tenant-specific top-level field mapping', () => {
@@ -55,18 +51,18 @@ describe('IdentityDataService', () => {
   });
 
   it('paginates identities in bulk and de-duplicates ids', async () => {
+    let calls = 0;
     const sdk = {
-      listIdentitiesV1: jasmine
-        .createSpy('listIdentitiesV1')
-        .and.callFake(({ offset }: { offset: number }) =>
-          Promise.resolve({
-            data:
-              offset === 0
-                ? [{ id: 'one', name: 'One' }]
-                : [{ id: 'one', name: 'Duplicate' }, { id: 'two', name: 'Two' }],
-            headers: offset === 0 ? { 'x-total-count': '251' } : {},
-          })
-        ),
+      listIdentitiesV1: ({ offset }: { offset: number }) => {
+        calls += 1;
+        return Promise.resolve({
+          data:
+            offset === 0
+              ? [{ id: 'one', name: 'One' }]
+              : [{ id: 'one', name: 'Duplicate' }, { id: 'two', name: 'Two' }],
+          headers: offset === 0 ? { 'x-total-count': '251' } : {},
+        });
+      },
     } as unknown as SailPointSDKService;
     const service = new IdentityDataService(sdk);
 
@@ -76,6 +72,6 @@ describe('IdentityDataService', () => {
       'one',
       'two',
     ]);
-    expect(sdk.listIdentitiesV1).toHaveBeenCalledTimes(2);
+    expect(calls).toBe(2);
   });
 });

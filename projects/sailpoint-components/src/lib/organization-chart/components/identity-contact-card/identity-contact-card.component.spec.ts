@@ -71,13 +71,19 @@ describe('IdentityContactCardComponent', () => {
     };
     component.manager = manager;
     fixture.detectChanges();
-    const closeSpy = spyOn(component.closed, 'emit');
-    const managerSpy = spyOn(component.managerSelected, 'emit');
+    let closed = false;
+    let emittedManager: OrgChartNode | undefined;
+    component.closed.subscribe(() => {
+      closed = true;
+    });
+    component.managerSelected.subscribe((value) => {
+      emittedManager = value;
+    });
 
     fixture.nativeElement.querySelector('mat-card-header button').click();
     fixture.nativeElement.querySelector('.manager-button').click();
 
-    expect(closeSpy).toHaveBeenCalled();
-    expect(managerSpy).toHaveBeenCalledWith(manager);
+    expect(closed).toBe(true);
+    expect(emittedManager).toBe(manager);
   });
 });

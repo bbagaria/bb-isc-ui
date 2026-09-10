@@ -70,9 +70,9 @@ describe('buildOrganizationHierarchy', () => {
     const source = identity('person');
     const result = buildOrganizationHierarchy([source]);
 
-    expect(result.roots[0]).toEqual(
-      jasmine.objectContaining({ id: 'person', name: 'person', children: [] })
-    );
+    expect(result.roots[0].id).toBe('person');
+    expect(result.roots[0].name).toBe('person');
+    expect(result.roots[0].children).toEqual([]);
     expect(source.children).toEqual([]);
   });
 });
