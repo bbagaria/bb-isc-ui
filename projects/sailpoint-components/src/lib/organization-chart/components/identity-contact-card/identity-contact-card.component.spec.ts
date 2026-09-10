@@ -25,7 +25,7 @@ describe('IdentityContactCardComponent', () => {
 
     fixture = TestBed.createComponent(IdentityContactCardComponent);
     component = fixture.componentInstance;
-    component.identity = selected;
+    fixture.componentRef.setInput('identity', selected);
     fixture.detectChanges();
   });
 
@@ -41,13 +41,12 @@ describe('IdentityContactCardComponent', () => {
   });
 
   it('omits unavailable contact actions', () => {
-    component.identity = {
+    fixture.componentRef.setInput('identity', {
       id: 'no-contact',
       name: 'No Contact',
       reportCount: 0,
       children: [],
-    };
-    component.ngOnChanges();
+    });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.contact-actions a').length)
@@ -69,7 +68,7 @@ describe('IdentityContactCardComponent', () => {
       reportCount: 1,
       children: [],
     };
-    component.manager = manager;
+    fixture.componentRef.setInput('manager', manager);
     fixture.detectChanges();
     let closed = false;
     let emittedManager: OrgChartNode | undefined;
