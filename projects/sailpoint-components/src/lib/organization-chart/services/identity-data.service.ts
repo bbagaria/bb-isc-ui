@@ -52,7 +52,7 @@ export class IdentityDataService {
 
       const totalCount = this.getTotalCount(firstResponse.headers);
       if (totalCount !== undefined) {
-        const requests = [];
+        const requests: number[] = [];
         for (
           let offset = this.batchSize;
           offset < totalCount;
@@ -222,7 +222,7 @@ export class IdentityDataService {
     field: OrgChartFieldConfig
   ): unknown {
     return field.source === 'topLevel'
-      ? (identity as Record<string, unknown>)[field.key]
+      ? (identity as unknown as Record<string, unknown>)[field.key]
       : attributes[field.key];
   }
 
