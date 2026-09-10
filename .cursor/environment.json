@@ -1,0 +1,21 @@
+{
+  "name": "SailPoint UI Development Kit",
+  "user": "ubuntu",
+  "install": "npm ci && (cd server && npm ci) && npm run build:components",
+  "terminals": [
+    {
+      "name": "api-server",
+      "command": "cd server && NODE_ENV=development PORT=3000 npm run dev",
+      "description": "Node/Express web API backend on port 3000 (serves /api/* endpoints)."
+    },
+    {
+      "name": "web",
+      "command": "npm run ng:serve:web",
+      "description": "Angular web dev server on port 4200 (proxies /api to the backend on port 3000)."
+    }
+  ],
+  "ports": [
+    { "name": "web", "port": 4200 },
+    { "name": "api", "port": 3000 }
+  ]
+}
