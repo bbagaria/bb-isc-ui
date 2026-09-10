@@ -183,6 +183,13 @@
             Owner Graph
           </a>
         }
+        @if (isComponentEnabled('organization-chart')) {
+          <a mat-list-item class="sidebar-link" routerLink="/organization-chart" routerLinkActive="active-link"
+            [class.disabled]="!isConnected" (click)="onNavItemClick($event)">
+            <mat-icon class="card-icon">account_tree</mat-icon>
+            Organization Chart
+          </a>
+        }
         @if (isComponentEnabled('colab')) {
           <a mat-list-item class="sidebar-link" routerLink="/colab" routerLinkActive="active-link"
             [class.disabled]="!isConnected" (click)="onNavItemClick($event)">

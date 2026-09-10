@@ -25,6 +25,12 @@ export * from './lib/accounts/accounts.component';
 export * from './lib/certification-management/certification-management.component';
 export * from './lib/cronicle/cronicle.component';
 export * from './lib/owner-graph/owner-graph.component';
+export * from './lib/organization-chart/organization-chart.component';
+export * from './lib/organization-chart/models/org-chart.models';
+export * from './lib/organization-chart/services/identity-data.service';
+export * from './lib/organization-chart/services/profile-photo.service';
+export * from './lib/organization-chart/services/teams-link.service';
+export * from './lib/organization-chart/utils/hierarchy-builder';
 
 export * from './lib/colab/colab.component';
 export * from './lib/colab/components/colab-card/colab-card.component';

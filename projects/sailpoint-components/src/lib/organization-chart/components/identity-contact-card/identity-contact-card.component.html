@@ -1,0 +1,82 @@
+<mat-card class="contact-card" role="dialog" aria-modal="true" [attr.aria-label]="'Contact details for ' + identity.name">
+  <mat-card-header>
+    <span class="panel-title">Identity details</span>
+    <button mat-icon-button type="button" aria-label="Close identity details" (click)="closed.emit()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </mat-card-header>
+
+  <mat-card-content>
+    <section class="identity-hero">
+      <div class="avatar avatar-large" aria-hidden="true">
+        @if (photoUrl && !imageFailed) {
+          <img [src]="photoUrl" [alt]="identity.name" (error)="imageFailed = true">
+        } @else if (initials) {
+          <span>{{ initials }}</span>
+        } @else {
+          <mat-icon>person</mat-icon>
+        }
+      </div>
+      <h2>{{ identity.name }}</h2>
+      @if (identity.title) {
+        <p class="title">{{ identity.title }}</p>
+      }
+      @if (identity.department || identity.location) {
+        <p class="metadata">
+          {{ identity.department }}
+          @if (identity.department && identity.location) { <span aria-hidden="true"> · </span> }
+          {{ identity.location }}
+        </p>
+      }
+      @if (identity.status) {
+        <span class="status">{{ identity.status }}</span>
+      }
+    </section>
+
+    @if (identity.phone || identity.email || teamsUrl) {
+      <mat-divider></mat-divider>
+      <section class="contact-actions" aria-label="Contact actions">
+        @if (identity.phone && phoneUrl) {
+          <a mat-stroked-button [href]="phoneUrl" [attr.aria-label]="'Call ' + identity.name">
+            <mat-icon>phone</mat-icon>
+            <span><strong>Call</strong><small>{{ identity.phone }}</small></span>
+          </a>
+        }
+        @if (identity.email && emailUrl) {
+          <a mat-stroked-button [href]="emailUrl" [attr.aria-label]="'Email ' + identity.name">
+            <mat-icon>mail</mat-icon>
+            <span><strong>Email</strong><small>{{ identity.email }}</small></span>
+          </a>
+        }
+        @if (teamsUrl) {
+          <a mat-stroked-button [href]="teamsUrl" target="_blank" rel="noopener noreferrer"
+             [attr.aria-label]="'Open Microsoft Teams for ' + identity.name">
+            <mat-icon>chat</mat-icon>
+            <span><strong>Microsoft Teams</strong><small>Chat or call</small></span>
+          </a>
+        }
+      </section>
+    }
+
+    <mat-divider></mat-divider>
+    <section class="organization-details" aria-label="Organization details">
+      @if (manager) {
+        <div>
+          <h3>Manager</h3>
+          <button mat-button type="button" class="manager-button" (click)="managerSelected.emit(manager)">
+            <mat-icon>person</mat-icon>
+            <span><strong>{{ manager.name }}</strong><small>{{ manager.title }}</small></span>
+          </button>
+        </div>
+      }
+      <div class="report-count">
+        <mat-icon>groups</mat-icon>
+        <span><strong>{{ identity.reportCount }}</strong> Direct {{ identity.reportCount === 1 ? 'Report' : 'Reports' }}</span>
+      </div>
+    </section>
+
+    @if (!identity.phone && !identity.email && !teamsUrl) {
+      <p class="empty-contact">No contact actions are available for this identity.</p>
+    }
+  </mat-card-content>
+</mat-card>
