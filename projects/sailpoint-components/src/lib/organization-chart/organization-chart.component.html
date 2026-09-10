@@ -163,12 +163,12 @@
     @if (selected) {
       <div class="details-backdrop" (click)="closeDetails()" aria-hidden="true"></div>
       <aside class="details-panel" (click)="$event.stopPropagation()">
-        <lib-identity-contact-card
+        <app-identity-contact-card
           [identity]="selected"
           [manager]="manager"
           (closed)="closeDetails()"
           (managerSelected)="focusIdentity($event, true)">
-        </lib-identity-contact-card>
+        </app-identity-contact-card>
       </aside>
     }
   </div>

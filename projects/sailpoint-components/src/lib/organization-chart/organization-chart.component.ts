@@ -70,7 +70,7 @@ export function searchOrganizationIdentities(
 }
 
 @Component({
-  selector: 'lib-organization-chart',
+  selector: 'app-organization-chart',
   standalone: true,
   imports: [
     CommonModule,

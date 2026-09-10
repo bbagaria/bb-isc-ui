@@ -16,7 +16,7 @@ import { ProfilePhotoService } from '../../services/profile-photo.service';
 import { TeamsLinkService } from '../../services/teams-link.service';
 
 @Component({
-  selector: 'lib-identity-contact-card',
+  selector: 'app-identity-contact-card',
   standalone: true,
   imports: [
     CommonModule,
