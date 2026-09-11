@@ -1,0 +1,186 @@
+<section class="org-chart-shell" aria-labelledby="org-chart-title">
+  <mat-card class="chart-toolbar">
+    <div class="toolbar-title">
+      <mat-icon aria-hidden="true">account_tree</mat-icon>
+      <div>
+        <h1 id="org-chart-title">Organization Chart</h1>
+        @if (identities.length > 0) {
+          <span>{{ identities.length }} identities</span>
+        }
+      </div>
+    </div>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="search-field">
+      <mat-label>Search people</mat-label>
+      <mat-icon matPrefix>search</mat-icon>
+      <input matInput [formControl]="searchControl" [matAutocomplete]="people"
+             placeholder="Name, title, department, or email"
+             aria-label="Search identities">
+      <mat-autocomplete #people="matAutocomplete" [displayWith]="displayIdentity"
+                        (optionSelected)="selectSearchResult($event)">
+        @for (identity of searchResults; track identity.id) {
+          <mat-option [value]="identity">
+            <span class="result-name">{{ identity.name }}</span>
+            <small>{{ identity.title || identity.department || identity.email }}</small>
+          </mat-option>
+        }
+        @if (searchControl.value && searchResults.length === 0) {
+          <mat-option disabled>No matching identities</mat-option>
+        }
+      </mat-autocomplete>
+    </mat-form-field>
+
+    <div class="toolbar-actions" aria-label="Chart view controls">
+      <button mat-icon-button type="button" matTooltip="Zoom out" aria-label="Zoom out"
+              [disabled]="loading || zoom <= 0.3" (click)="zoomOut()">
+        <mat-icon>remove</mat-icon>
+      </button>
+      <span class="zoom-label" aria-live="polite">{{ zoom * 100 | number:'1.0-0' }}%</span>
+      <button mat-icon-button type="button" matTooltip="Zoom in" aria-label="Zoom in"
+              [disabled]="loading || zoom >= 2" (click)="zoomIn()">
+        <mat-icon>add</mat-icon>
+      </button>
+      <button mat-stroked-button type="button" matTooltip="Fit chart to view"
+              aria-label="Fit chart to view" [disabled]="loading || layoutNodes.length === 0"
+              (click)="fitToView()">
+        <mat-icon>fit_screen</mat-icon>
+        <span>Fit</span>
+      </button>
+    </div>
+  </mat-card>
+
+  @if (hierarchy.orphaned.length > 0 || hierarchy.invalid.length > 0) {
+    <div class="relationship-notice" role="status">
+      <mat-icon>info</mat-icon>
+      <span>
+        @if (hierarchy.orphaned.length > 0) {
+          {{ hierarchy.orphaned.length }} missing manager
+          {{ hierarchy.orphaned.length === 1 ? 'reference' : 'references' }}
+        }
+        @if (hierarchy.invalid.length > 0) {
+          @if (hierarchy.orphaned.length > 0) { <span aria-hidden="true"> · </span> }
+          {{ hierarchy.invalid.length }} circular or self-managed
+          {{ hierarchy.invalid.length === 1 ? 'identity' : 'identities' }}
+        }
+      </span>
+    </div>
+  }
+
+  <div class="chart-body" [class.details-open]="selected">
+    <div #viewport class="chart-viewport" role="region"
+         aria-label="Interactive organization hierarchy. Drag to pan and use the toolbar to zoom."
+         [class.panning]="isPanning"
+         (wheel)="onWheel($event)"
+         (pointerdown)="startPan($event)"
+         (pointermove)="pan($event)"
+         (pointerup)="endPan()"
+         (pointercancel)="endPan()">
+      @if (loading) {
+        <div class="state-container" role="status" aria-live="polite">
+          <mat-spinner diameter="44"></mat-spinner>
+          <h2>Loading organization data</h2>
+          <p>{{ loadedCount > 0 ? (loadedCount + ' identities loaded') : 'Connecting to Identity Security Cloud…' }}</p>
+        </div>
+      } @else if (errorMessage) {
+        <div class="state-container error-state" role="alert">
+          <mat-icon>cloud_off</mat-icon>
+          <h2>Unable to load organization data.</h2>
+          <p>Please try again.</p>
+          <button mat-raised-button type="button" (click)="load()">
+            <mat-icon>refresh</mat-icon>
+            Retry
+          </button>
+        </div>
+      } @else if (identities.length === 0) {
+        <div class="state-container">
+          <mat-icon>group_off</mat-icon>
+          <h2>No identities found</h2>
+          <p>This ISC tenant did not return organization data.</p>
+        </div>
+      } @else {
+        <div class="chart-stage"
+             [style.width.px]="canvasWidth"
+             [style.height.px]="canvasHeight"
+             [style.transform]="transform">
+          <svg class="connectors" [attr.width]="canvasWidth" [attr.height]="canvasHeight"
+               aria-hidden="true">
+            @for (connector of connectors; track $index) {
+              <path
+                [attr.d]="'M ' + connector.fromX + ' ' + connector.fromY +
+                          ' V ' + ((connector.fromY + connector.toY) / 2) +
+                          ' H ' + connector.toX + ' V ' + connector.toY">
+              </path>
+            }
+          </svg>
+
+          @for (item of layoutNodes; track trackNode($index, item)) {
+            <mat-card class="org-node"
+                      [class.selected]="selected?.id === item.node.id"
+                      [class.highlighted]="highlightedId === item.node.id"
+                      [style.left.px]="item.x"
+                      [style.top.px]="item.y">
+              <button mat-button type="button" class="identity-button"
+                      [attr.aria-label]="'Open details for ' + item.node.name"
+                      [attr.aria-pressed]="selected?.id === item.node.id"
+                      (click)="selectIdentity(item.node)">
+                <span class="node-avatar" aria-hidden="true">
+                  @if (photoUrl(item.node); as photo) {
+                    <img [src]="photo" [alt]="item.node.name" (error)="photoFailed(item.node)">
+                  } @else if (initials(item.node)) {
+                    {{ initials(item.node) }}
+                  } @else {
+                    <mat-icon>person</mat-icon>
+                  }
+                </span>
+                <span class="node-content">
+                  <strong>{{ item.node.name }}</strong>
+                  @if (item.node.title) {
+                    <span class="node-title">{{ item.node.title }}</span>
+                  }
+                  @if (item.node.department || item.node.location) {
+                    <span class="node-meta">{{ item.node.department || item.node.location }}</span>
+                  }
+                </span>
+              </button>
+
+              <div class="node-footer">
+                <span>
+                  {{ item.node.reportCount }}
+                  direct {{ item.node.reportCount === 1 ? 'report' : 'reports' }}
+                </span>
+                <div class="node-footer-actions">
+                  @if (relationshipIssue(item.node); as issue) {
+                    <mat-icon class="relationship-issue" role="img"
+                              [attr.aria-label]="issue" [matTooltip]="issue">warning</mat-icon>
+                  }
+                  @if (item.node.children.length > 0) {
+                    <button mat-icon-button type="button"
+                            [attr.aria-label]="(isExpanded(item.node) ? 'Collapse reports for ' : 'Expand reports for ') + item.node.name"
+                            [attr.aria-expanded]="isExpanded(item.node)"
+                            (click)="toggleExpanded(item.node, $event)">
+                      <mat-icon>{{ isExpanded(item.node) ? 'remove' : 'add' }}</mat-icon>
+                    </button>
+                  }
+                </div>
+              </div>
+            </mat-card>
+          }
+        </div>
+      }
+    </div>
+
+    @if (selected) {
+      <div class="details-backdrop" (click)="closeDetails()" aria-hidden="true"></div>
+      <aside class="details-panel" cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
+             (click)="$event.stopPropagation()">
+        <app-identity-contact-card
+          [identity]="selected"
+          [manager]="manager"
+          [managerUnavailable]="!!selected.managerId && !manager"
+          (closed)="closeDetails()"
+          (managerSelected)="focusIdentity($event, true)">
+        </app-identity-contact-card>
+      </aside>
+    }
+  </div>
+</section>

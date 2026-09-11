@@ -127,6 +127,14 @@ export class ConfigService {
       description: 'Manage owner graph in SailPoint.',
       enabled: false
     },
+    {
+      name: 'organization-chart',
+      displayName: 'Organization Chart',
+      route: '/organization-chart',
+      icon: 'account_tree',
+      description: 'Explore ISC identity reporting relationships.',
+      enabled: false,
+    },
         {
             name: 'colab',
             displayName: 'Colab',
